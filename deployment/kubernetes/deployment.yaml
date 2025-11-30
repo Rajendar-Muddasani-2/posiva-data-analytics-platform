@@ -1,0 +1,134 @@
+# Kubernetes Deployment Configuration for POSIVA Analytics Platform
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: posiva-analytics
+  namespace: production
+  labels:
+    app: posiva-analytics
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: posiva-analytics
+  template:
+    metadata:
+      labels:
+        app: posiva-analytics
+        version: v1
+    spec:
+      containers:
+      - name: dashboard
+        image: posiva-analytics:latest
+        ports:
+        - containerPort: 8501
+          name: streamlit
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+        - name: models-volume
+          mountPath: /app/models
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: posiva-data-pvc
+      - name: models-volume
+        persistentVolumeClaim:
+          claimName: posiva-models-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: posiva-analytics-service
+  namespace: production
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8501
+    protocol: TCP
+    name: http
+  selector:
+    app: posiva-analytics
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: posiva-data-pvc
+  namespace: production
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: posiva-models-pvc
+  namespace: production
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: posiva-analytics-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: posiva-analytics
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
