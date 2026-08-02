@@ -17,9 +17,15 @@ from typing import Dict, List, Optional, Tuple
 import logging
 from datetime import datetime
 
-# Explainability
-import shap
-from lime import lime_tabular
+# Explainability — lazy imports to avoid hard dependency at collection time
+try:
+    import shap
+except ImportError:
+    shap = None  # type: ignore[assignment]
+try:
+    from lime import lime_tabular
+except ImportError:
+    lime_tabular = None  # type: ignore[assignment]
 
 # Visualization
 import plotly.graph_objects as go
