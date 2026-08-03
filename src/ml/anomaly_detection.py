@@ -5,6 +5,7 @@ Unsupervised learning for outlier and anomaly detection
 
 import pandas as pd
 import numpy as np
+from scipy import stats
 from typing import Dict, List, Optional, Tuple
 from sklearn.ensemble import IsolationForest
 from sklearn.cluster import DBSCAN
